@@ -49,6 +49,7 @@ from ansible.module_utils._text import to_native
 
 try:
     import yandexcloud
+    import json
     from yandex.cloud.compute.v1.instance_service_pb2_grpc import InstanceServiceStub
     from yandex.cloud.compute.v1.instance_service_pb2 import ListInstancesRequest
     from google.protobuf.json_format import MessageToDict
@@ -70,7 +71,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         if super(InventoryModule, self).verify_file(path):
             if path.endswith(('yacloud_compute.yml', 'yacloud_compute.yaml')):
                 return True
-        display.debug("yacloud_compute inventory filename must end with 'yacloud_compute.yml' or 'yacloud_compute.yaml'")
+        display.vv("yacloud_compute inventory filename must end with 'yacloud_compute.yml' or 'yacloud_compute.yaml'")
         return False
 
     def _get_ip_for_instance(self, instance):
@@ -88,6 +89,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         all_clouds = MessageToDict(self.cloud_service.List(ListCloudsRequest()))["clouds"]
         if self.get_option('yacloud_clouds'):
             all_clouds[:] = [x for x in all_clouds if x["name"] in self.get_option('yacloud_clouds')]
+        display.vvvv("%s._get_clouds: %s" % (self.NAME, json.dumps(all_clouds)))
         self.clouds = all_clouds
 
     def _get_folders(self):
@@ -97,6 +99,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
 
         if self.get_option('yacloud_folders'):
             all_folders[:] = [x for x in all_folders if x["name"] in self.get_option('yacloud_folders')]
+
+        display.vvvv("%s._get_folders: %s" % (self.NAME, json.dumps(all_folders)))
 
         self.folders = all_folders
 
@@ -108,6 +112,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
 
             if dict_:
                 self.hosts += dict_["instances"]
+
+        display.vvvv("%s._get_all_hosts: %s" % (self.NAME, json.dumps(self.hosts)))
+
+        self.hosts
 
     def _init_client(self):
         file = self.get_option('yacloud_token_file')
@@ -127,7 +135,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         group_label = str(self.get_option('yacloud_group_label'))
 
         for instance in self.hosts:
-            if group_label and group_label in instance["labels"]:
+            if group_label and "labels" in instance and group_label in instance["labels"]:
                 group = instance["labels"][group_label]
             else:
                 group = "yacloud"
